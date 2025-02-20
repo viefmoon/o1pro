@@ -31,8 +31,6 @@ Enumera los posibles desafíos o áreas que necesiten clarificación
 Considera posibles casos extremos y escenarios de manejo de errores
 Después de tu análisis, genera la especificación técnica utilizando la siguiente estructura en markdown:
 
-markdown
-Copiar
 # Especificación Técnica Backend NestJS - {Nombre del Proyecto}
 
 ## 1. Resumen del Sistema
@@ -93,26 +91,14 @@ Para cada servicio:
 - Métricas importantes
 - Alertas y notificaciones
 
-## 10. Pruebas
-### 10.1 Pruebas Unitarias
-- Configuración de Jest
-- Ejemplos de casos de prueba
-- Mocking de dependencias
-
-### 10.2 Pruebas E2E
-- Configuración de pruebas E2E
-- Escenarios clave a probar
-- Datos de prueba
-
 ## 11. Documentación API
 - Configuración de Swagger/OpenAPI
 - Ejemplos de documentación
 - Convenciones de documentación
 
-## 12. Despliegue y CI/CD
+## 12. Despliegue
 - Configuración de entornos
 - Variables de entorno
-- Pipeline de CI/CD
 - Estrategia de despliegue
 Asegúrate de que tu especificación sea extremadamente detallada, proporcionando una guía de implementación específica siempre que sea posible. Incluye ejemplos concretos de código para patrones y funcionalidades complejas.
 

@@ -1,5 +1,4 @@
 <specification_planning>
-En este apartado, describiré paso a paso cómo abordaré la elaboración de la especificación técnica del Frontend en React Native con Expo. La idea es que sirva de guía detallada para que un equipo de desarrollo pueda implementar la aplicación basándose en los requerimientos y el boilerplate presentado.
 
 ## 1. Arquitectura general de la aplicación y flujos de navegación
 
@@ -76,11 +75,8 @@ En este apartado, describiré paso a paso cómo abordaré la elaboración de la 
 - Resumen final de buenas prácticas.
 - Referencias a la documentación de Expo, React Navigation, MST, etc.
 
-Al finalizar el proceso de planificación, escribiré la especificación final en formato Markdown, detallando cada punto con ejemplos de código y snippets relevantes.
+<specification_planning>
 
-````
-
-```markdown
 # Especificación Técnica Frontend Expo React Native – Nombre Del Proyecto
 
 ## 1. Resumen del Sistema

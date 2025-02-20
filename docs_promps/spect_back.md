@@ -475,17 +475,59 @@ A continuación se definen los módulos y sus endpoints principales. *Nota:* Tod
 - **DELETE `/api/v1/reservations/:id`**
 
 ### 3.7 Employees Module
-**Descripción:** Alta y modificación de empleados, gestión de turnos, sueldos, roles y asistencias.
+**Descripción:** Sistema integral para gestión de empleados, incluyendo programación de turnos, solicitudes de tiempo libre y nómina.
 
 **Endpoints:**
 
-- **POST `/api/v1/employees`**
-- **GET `/api/v1/employees`**
-- **GET `/api/v1/employees/:id`**
-- **PATCH `/api/v1/employees/:id`**
-- **DELETE `/api/v1/employees/:id`**
-- **POST `/api/v1/employees/:id/checkin`**
-- **POST `/api/v1/employees/:id/checkout`**
+- **Empleados Base:**
+  - **POST `/api/v1/employees`**
+  - **GET `/api/v1/employees`**
+  - **GET `/api/v1/employees/:id`**
+  - **PATCH `/api/v1/employees/:id`**
+  - **DELETE `/api/v1/employees/:id`**
+  
+- **Programación:**
+  - **POST `/api/v1/employees/schedules`** - Crea nuevo turno
+  - **GET `/api/v1/employees/schedules`** - Lista turnos (filtrable)
+  - **PATCH `/api/v1/employees/schedules/:id`** - Actualiza turno
+  - **DELETE `/api/v1/employees/schedules/:id`** - Cancela turno
+  - **GET `/api/v1/employees/:id/schedules`** - Turnos por empleado
+  
+- **Tiempo Libre:**
+  - **POST `/api/v1/employees/time-off`** - Nueva solicitud
+  - **GET `/api/v1/employees/time-off`** - Lista solicitudes
+  - **PATCH `/api/v1/employees/time-off/:id`** - Actualiza solicitud
+  - **POST `/api/v1/employees/time-off/:id/approve`** - Aprueba solicitud
+  - **POST `/api/v1/employees/time-off/:id/reject`** - Rechaza solicitud
+  
+- **Nómina:**
+  - **POST `/api/v1/employees/payroll`** - Genera nómina
+  - **GET `/api/v1/employees/payroll`** - Lista nóminas
+  - **GET `/api/v1/employees/:id/payroll`** - Nóminas por empleado
+  - **PATCH `/api/v1/employees/payroll/:id`** - Actualiza nómina
+  - **POST `/api/v1/employees/payroll/:id/approve`** - Aprueba nómina
+  - **POST `/api/v1/employees/payroll/:id/process-payment`** - Procesa pago
+
+**DTOs:**
+
+- CreateEmployeeScheduleDto
+- UpdateEmployeeScheduleDto
+- TimeOffRequestDto
+- PayrollGenerationDto
+- PayrollUpdateDto
+
+**Validaciones:**
+
+- No solapamiento de turnos para un mismo empleado
+- Validación de fechas coherentes en solicitudes
+- Verificación de saldo disponible para vacaciones
+- Validación de montos y cálculos en nómina
+
+**Manejo de Errores:**
+
+- 409 para conflictos de horarios
+- 422 para solicitudes inválidas de tiempo libre
+- 403 para intentos no autorizados de aprobación
 
 ### 3.8 Reports/Facturación Module
 **Descripción:** Genera reportes de ventas, inventario, sueldos, conciliación de pagos y facturación.
@@ -678,12 +720,17 @@ A continuación se definen los módulos y sus endpoints principales. *Nota:* Tod
   - tenantId: FK → Restaurant
   - name: string
   - areaId: FK → Area
+  - isTemporary: boolean // Indica si es una mesa temporal
+  - temporaryIdentifier: string (opcional) // Identificador descriptivo para mesas temporales (ej: "Evento Boda 12/12", "Extensión Terraza")
+  - parentTableId: FK → Table (opcional) // Para mesas temporales derivadas de una mesa principal
   - deletedAt: Date
   - Relaciones:
     - restaurant: Restaurant (ManyToOne)
     - area: Area (ManyToOne)
     - orders: Order[] (OneToMany)
     - reservations: Reservation[] (OneToMany)
+    - parentTable: Table (ManyToOne)
+    - temporaryTables: Table[] (OneToMany)
 
 - **Product**
   - id: number
@@ -762,9 +809,19 @@ A continuación se definen los módulos y sus endpoints principales. *Nota:* Tod
   - name: string
   - role: string (chef, mesero, etc.)
   - salary: number
+  - hireDate: Date
+  - status: enum (ACTIVE, INACTIVE, ON_LEAVE)
+  - documentId: string (opcional) // Documento de identidad
+  - contactPhone: string
+  - emergencyContact: jsonb // Contacto de emergencia
+  - bankInfo: jsonb (opcional) // Información bancaria
+  - benefits: jsonb // Beneficios asignados
   - deletedAt: Date
   - Relaciones:
     - restaurant: Restaurant (ManyToOne)
+    - schedules: EmployeeSchedule[] (OneToMany)
+    - timeOffRequests: EmployeeTimeOffRequest[] (OneToMany)
+    - payrolls: EmployeePayroll[] (OneToMany)
 
 - **File**
   - id: number
@@ -961,6 +1018,62 @@ A continuación se definen los módulos y sus endpoints principales. *Nota:* Tod
     - orderItem: OrderItem (ManyToOne)
     - assignedUser: User (ManyToOne)
 
+- **EmployeeSchedule**
+  - id: number
+  - employeeId: FK → Employee
+  - startTime: Date
+  - endTime: Date
+  - status: enum (SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED)
+  - type: enum (REGULAR, OVERTIME, HOLIDAY)
+  - notes: string (opcional)
+  - createdBy: FK → User
+  - updatedBy: FK → User (opcional)
+  - deletedAt: Date (soft delete)
+  - Relaciones:
+    - employee: Employee (ManyToOne)
+    - creator: User (ManyToOne)
+    - updater: User (ManyToOne)
+    - timeOffRequest: EmployeeTimeOffRequest (OneToOne, opcional)
+
+- **EmployeeTimeOffRequest**
+  - id: number
+  - employeeId: FK → Employee
+  - startDate: Date
+  - endDate: Date
+  - type: enum (VACATION, SICK_LEAVE, PERSONAL, OTHER)
+  - status: enum (PENDING, APPROVED, REJECTED, CANCELLED)
+  - reason: string
+  - approvedBy: FK → User (opcional)
+  - approvedAt: Date (opcional)
+  - notes: string (opcional)
+  - attachments: string[] (opcional, URLs de documentos)
+  - deletedAt: Date (soft delete)
+  - Relaciones:
+    - employee: Employee (ManyToOne)
+    - approver: User (ManyToOne)
+    - schedule: EmployeeSchedule (OneToOne, opcional)
+
+- **EmployeePayroll**
+  - id: number
+  - employeeId: FK → Employee
+  - periodStart: Date
+  - periodEnd: Date
+  - baseSalary: number
+  - overtimeHours: number
+  - overtimeRate: number
+  - reportedTips: number
+  - deductions: jsonb // Deducciones varias
+  - benefits: jsonb // Beneficios adicionales
+  - totalPayment: number
+  - status: enum (DRAFT, APPROVED, PAID)
+  - paidAt: Date (opcional)
+  - paidBy: FK → User (opcional)
+  - notes: string (opcional)
+  - deletedAt: Date (soft delete)
+  - Relaciones:
+    - employee: Employee (ManyToOne)
+    - payer: User (ManyToOne)
+
 *Nota:* Cada entidad puede incluir índices para `tenantId`, `email`, etc., para mejorar el 
 rendimiento.
 
@@ -983,6 +1096,10 @@ rendimiento.
 
 - **TablesService**
   - Métodos para crear, actualizar y eliminar mesas, incluyendo `mergeTables()` y `splitTables()`.
+  - Nuevos métodos:
+    - `createTemporaryTable(data: CreateTemporaryTableDto)`
+    - `convertToPermanent(id: number)`
+    - `getTemporaryTables(filters?: TemporaryTableFilters)`
 
 - **AreasService**
   - Métodos para gestionar áreas de un restaurante (crear, actualizar, listar).
@@ -1059,6 +1176,37 @@ rendimiento.
     - `calculatePriority(orderItem)`
     - `estimateWaitTime(screenId)`
     - `reassignItem(itemId, newScreenId)`
+
+- **EmployeeScheduleService**
+  - Métodos:
+    - `createSchedule(employeeId, scheduleData)`
+    - `updateSchedule(scheduleId, data)`
+    - `cancelSchedule(scheduleId)`
+    - `getEmployeeSchedules(employeeId, dateRange)`
+    - `getScheduleConflicts(scheduleData)`
+    - `getSchedulesByDateRange(startDate, endDate)`
+    - `markScheduleCompleted(scheduleId)`
+
+- **EmployeeTimeOffService**
+  - Métodos:
+    - `requestTimeOff(employeeId, requestData)`
+    - `approveRequest(requestId, approverId)`
+    - `rejectRequest(requestId, approverId, reason)`
+    - `cancelRequest(requestId)`
+    - `getPendingRequests()`
+    - `getEmployeeRequests(employeeId)`
+    - `checkAvailability(employeeId, dateRange)`
+
+- **PayrollService**
+  - Métodos:
+    - `generatePayroll(employeeId, periodRange)`
+    - `calculateOvertimeHours(employeeId, periodRange)`
+    - `addDeduction(payrollId, deductionData)`
+    - `addBenefit(payrollId, benefitData)`
+    - `approvePayroll(payrollId)`
+    - `processPayment(payrollId)`
+    - `generatePayrollReport(periodRange)`
+    - `calculateTotalPayroll(periodRange)`
 
 **Manejo de Casos de Error:**
 
@@ -1162,3 +1310,32 @@ coincide.
    - Al completar pagos, mesa libera estado
    - Se marca orden como completada
    - Se actualiza historial
+
+**Validaciones para Mesas Temporales:**
+
+- El identificador temporal debe ser único dentro del restaurante
+- Si se especifica parentTableId, debe existir y no ser temporal
+- No se pueden hacer reservas en mesas temporales más allá de su fecha de expiración
+- Validar disponibilidad del nombre/número de mesa
+- Al convertir a permanente, validar conflictos con otras mesas
+
+**Casos de Uso:**
+
+1. Eventos Especiales
+   - Crear mesas temporales para un evento
+   - Identificar claramente el evento (ej: "Mesa VIP Evento Corp")
+
+2. Extensiones de Área
+   - Derivar mesas temporales de mesas existentes
+   - Mantener referencia a mesa principal
+   - Identificar la extensión (ej: "Extensión Terraza Norte")
+
+3. Pruebas de Layout
+   - Crear configuraciones temporales
+   - Evaluar eficiencia antes de hacer permanente
+   - Identificar el propósito (ej: "Prueba Layout Verano")
+
+4. Manejo de Picos de Demanda
+   - Habilitar espacios adicionales temporalmente
+   - Gestionar capacidad flexible
+   - Identificar el propósito (ej: "Extra Temporada Alta")
